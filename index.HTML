@@ -6,6 +6,9 @@
     <title>App Cupons Cloud</title>
     
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 
     <style>
         :root {
@@ -96,12 +99,12 @@
 
         button.main-btn {
             background-color: var(--primary); color: white; border: none; padding: 15px;
-            border-radius: 8px; font-size: 1.1rem; font-weight: bold; width: 100%; margin-top: 10px;
+            border-radius: 8px; font-size: 1.1rem; font-weight: bold; width: 100%; margin-top: 10px; cursor: pointer;
         }
         
         button.cancel-btn {
             background-color: #94a3b8; color: white; border: none; padding: 12px;
-            border-radius: 8px; font-weight: bold; width: 100%; display: none;
+            border-radius: 8px; font-weight: bold; width: 100%; display: none; cursor: pointer;
         }
 
         .cupom-item {
@@ -149,7 +152,6 @@
         .nav-item.active { color: var(--primary); }
         .nav-icon { font-size: 1.5rem; }
         
-        /* ESTILO DO MODAL DE FOTO */
         .modal {
             display: none; position: fixed; z-index: 1000; left: 0; top: 0;
             width: 100%; height: 100%; background-color: rgba(0,0,0,0.9);
@@ -209,8 +211,8 @@
                     </div>
 
                     <div class="form-group">
-                        <label>Observações</label>
-                        <textarea id="observacoes" rows="2" placeholder="Detalhes da compra..."></textarea>
+                        <label>Paciente / Setor</label>
+                        <textarea id="observacoes" rows="2" placeholder="Ex: Paciente João / Setor UTI..."></textarea>
                     </div>
                     
                     <div class="form-group">
@@ -239,11 +241,20 @@
             </div>
 
             <div class="card" style="padding: 15px;">
-                <input type="text" id="filterBusca" placeholder="🔍 Buscar..." oninput="renderizarLista()" style="margin-bottom:10px">
-                <div style="display: flex; gap: 10px;">
-                    <input type="date" id="filterInicio" onchange="renderizarLista()" style="font-size: 0.8rem;">
-                    <input type="date" id="filterFim" onchange="renderizarLista()" style="font-size: 0.8rem;">
+                <input type="text" id="filterBusca" placeholder="🔍 Buscar por estabelecimento..." oninput="renderizarLista()" style="margin-bottom:10px">
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 0.75rem; margin-bottom: 2px;">De:</label>
+                        <input type="date" id="filterInicio" onchange="renderizarLista()" style="font-size: 0.8rem; padding: 8px;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 0.75rem; margin-bottom: 2px;">Até:</label>
+                        <input type="date" id="filterFim" onchange="renderizarLista()" style="font-size: 0.8rem; padding: 8px;">
+                    </div>
                 </div>
+                <button onclick="exportarPDF()" class="main-btn" style="background-color: #10b981; margin-top: 0; padding: 12px; display: flex; justify-content: center; align-items: center; gap: 8px;">
+                    📄 Exportar PDF do Período
+                </button>
             </div>
 
             <div id="listaCupons">
@@ -258,8 +269,8 @@
             <span>Cadastro</span>
         </button>
         <button class="nav-item" onclick="changeScreen('visualizacao', this)">
-            <span class="nav-icon">☁️</span>
-            <span>Registros</span>
+            <span class="nav-icon">📊</span>
+            <span>Relatórios</span>
         </button>
     </div>
 
@@ -273,20 +284,27 @@
         let cupons = [];
         let idSendoEditado = null;
 
-        document.getElementById('data').valueAsDate = new Date();
+        // CONFIGURAÇÃO DE DATAS PADRÃO
+        const hoje = new Date();
+        document.getElementById('data').valueAsDate = hoje; // Preenche form com hoje
+        
+        // Define Filtro Inicial como o 1º dia do mês atual
+        const primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+        // Corrige fuso horário para evitar que caia no dia anterior
+        const dataFormatadaParaInput = primeiroDiaMes.toLocaleDateString('en-CA'); // Formato YYYY-MM-DD
+        document.getElementById('filterInicio').value = dataFormatadaParaInput;
 
         async function buscarDadosDaNuveem() {
             try {
                 const { data, error } = await supabaseClient.from('cupons').select('*').order('data', { ascending: false });
                 if (error) throw error;
                 cupons = data; 
-                renderizarLista();
+                renderizarLista(); // A renderização já vai obedecer o filtro do dia 1º que configuramos acima
             } catch (erro) {
                 console.error(erro);
             }
         }
 
-        // CORREÇÃO APLICADA AQUI: Altera apenas o texto e a cor, sem destruir o input do arquivo!
         document.getElementById('foto').addEventListener('change', function(e) {
             const label = document.getElementById('lblFoto');
             const texto = document.getElementById('textoFoto');
@@ -339,7 +357,7 @@
             });
 
             if(cuponsFiltrados.length === 0) {
-                container.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">Nenhum cupom encontrado.</div>';
+                container.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">Nenhum registro encontrado neste período.</div>';
             }
 
             cuponsFiltrados.forEach((c) => {
@@ -347,7 +365,7 @@
                 const dataFormatada = c.data.split('-').reverse().join('/');
                 
                 const imgHtml = c.foto ? `<img src="${c.foto}" class="cupom-foto" onclick="abrirFoto(this.src)">` : `<div class="cupom-foto" style="display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:#94a3b8;text-align:center;">S/ Foto</div>`;
-                const obsHtml = c.observacoes ? `<div class="cupom-obs">${c.observacoes}</div>` : '';
+                const obsHtml = c.observacoes ? `<div class="cupom-obs">👤 ${c.observacoes}</div>` : '';
 
                 container.innerHTML += `
                     <div class="cupom-item" id="cupom-${c.id}">
@@ -380,12 +398,11 @@
             document.getElementById('data').value = cupom.data;
             document.getElementById('categoria').value = cupom.categoria;
             document.getElementById('observacoes').value = cupom.observacoes || '';
-            document.getElementById('formTitle').innerText = "✏️ Editar Cupom";
+            document.getElementById('formTitle').innerText = "✏️ Editar Registro";
             document.getElementById('btnSalvar').innerText = "Atualizar";
             document.getElementById('btnCancelar').style.display = "block";
             document.getElementById('fotoAviso').style.display = cupom.foto ? "block" : "none";
             
-            // Se estiver editando e o item não tiver foto, avisa para ele
             if(!cupom.foto) {
                 document.getElementById('textoFoto').innerText = "📷 Adicionar Foto";
             }
@@ -403,7 +420,6 @@
             document.getElementById('btnCancelar').style.display = "none";
             document.getElementById('fotoAviso').style.display = "none";
             
-            // Restaura o visual do botão da foto
             document.getElementById('textoFoto').innerText = '📷 Abrir Câmera';
             document.getElementById('lblFoto').style.backgroundColor = '#e0f2fe';
             document.getElementById('lblFoto').style.color = '#0369a1';
@@ -436,10 +452,8 @@
             btn.disabled = true;
 
             if (file) {
-                // Se escolheu uma foto nova, comprime e salva
                 redimensionarEConverterImagem(file, (fotoBase64) => salvarNoSupabase(fotoBase64));
             } else {
-                // Se não escolheu foto, mantém a antiga (se existir)
                 const antiga = idSendoEditado ? cupons.find(c => c.id === idSendoEditado).foto : null;
                 salvarNoSupabase(antiga);
             }
@@ -461,7 +475,7 @@
                     await supabaseClient.from('cupons').insert([cupomData]);
                 }
                 alert("✓ Salvo com sucesso!");
-                cancelarEdicao(); // Já limpa o form e o botão de foto
+                cancelarEdicao(); 
                 buscarDadosDaNuveem();
             } catch (e) {
                 alert("Erro ao salvar.");
@@ -481,6 +495,82 @@
             }
         }
 
+        // ==========================================
+        // GERAÇÃO DE RELATÓRIO PDF
+        // ==========================================
+        window.exportarPDF = function() {
+            // Puxa as bibliotecas do window
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // Pega os valores atuais dos filtros
+            const busca = document.getElementById('filterBusca').value.toLowerCase();
+            const dataInicio = document.getElementById('filterInicio').value;
+            const dataFim = document.getElementById('filterFim').value;
+
+            // Filtra os cupons que irão para o PDF (exatamente os que estão na tela)
+            const cuponsFiltrados = cupons.filter(c => {
+                const matchNome = c.estabelecimento.toLowerCase().includes(busca);
+                const matchDataInicio = dataInicio ? c.data >= dataInicio : true;
+                const matchDataFim = dataFim ? c.data <= dataFim : true;
+                return matchNome && matchDataInicio && matchDataFim;
+            });
+
+            if(cuponsFiltrados.length === 0) {
+                alert("Não há registros neste período para exportar.");
+                return;
+            }
+
+            // Título e Período do Relatório
+            doc.setFontSize(16);
+            doc.text("Relatório de Despesas Médicas/Gerais", 14, 20);
+            
+            doc.setFontSize(10);
+            let textoPeriodo = "Período filtrado: ";
+            if(dataInicio && dataFim) textoPeriodo += `${dataInicio.split('-').reverse().join('/')} até ${dataFim.split('-').reverse().join('/')}`;
+            else if (dataInicio) textoPeriodo += `A partir de ${dataInicio.split('-').reverse().join('/')}`;
+            else if (dataFim) textoPeriodo += `Até ${dataFim.split('-').reverse().join('/')}`;
+            else textoPeriodo += "Todos os registros";
+            
+            doc.text(textoPeriodo, 14, 28);
+
+            // Montar os dados da tabela
+            let totalSoma = 0;
+            const linhas = cuponsFiltrados.map(c => {
+                totalSoma += Number(c.valor);
+                return [
+                    c.data.split('-').reverse().join('/'),
+                    c.estabelecimento,
+                    c.categoria,
+                    c.observacoes || '-', // Aqui usamos a coluna do banco que reprensenta Paciente/Setor
+                    formatarMoeda(c.valor)
+                ];
+            });
+
+            // Adiciona a linha final de TOTAL
+            linhas.push(['', '', '', 'TOTAL GASTO:', formatarMoeda(totalSoma)]);
+
+            // Desenha a Tabela
+            doc.autoTable({
+                startY: 35,
+                head: [['Data', 'Estabelecimento', 'Categoria', 'Paciente/Setor', 'Valor']],
+                body: linhas,
+                theme: 'striped',
+                headStyles: { fillColor: [37, 99, 235] }, // Cor Azul Primária
+                didParseCell: function(data) {
+                    // Pinta a última linha de cinza e deixa o texto em negrito
+                    if (data.row.index === linhas.length - 1) {
+                        data.cell.styles.fontStyle = 'bold';
+                        data.cell.styles.fillColor = [226, 232, 240];
+                    }
+                }
+            });
+
+            // Faz o download do arquivo
+            doc.save("Relatorio_Cupons_Despesas.pdf");
+        }
+
+        // Inicia a aplicação
         buscarDadosDaNuveem();
     </script>
 </body>
