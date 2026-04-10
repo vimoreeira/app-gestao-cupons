@@ -157,7 +157,7 @@
         }
         .modal-img { max-width: 90%; max-height: 80%; border-radius: 8px; box-shadow: 0 0 20px rgba(255,255,255,0.2); }
         .modal-close { position: absolute; top: 20px; right: 20px; color: white; font-size: 30px; font-weight: bold; cursor: pointer; }
-        .modal-btn-voltar { margin-top: 20px; background: white; color: black; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; }
+        .modal-btn-voltar { margin-top: 20px; background: white; color: black; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; cursor: pointer; }
 
         .loading { text-align: center; padding: 20px; color: var(--text-muted); font-weight: bold; }
     </style>
@@ -217,7 +217,7 @@
                         <label>Foto do Cupom</label>
                         <div class="camera-btn-wrapper">
                             <div class="camera-btn" id="lblFoto">
-                                📷 Abrir Câmera
+                                <span id="textoFoto">📷 Abrir Câmera</span>
                                 <input type="file" id="foto" accept="image/*" capture="environment">
                             </div>
                         </div>
@@ -286,20 +286,18 @@
             }
         }
 
-        function setupFotoInput() {
-            document.getElementById('foto').addEventListener('change', function(e) {
-                const label = document.getElementById('lblFoto');
-                if(this.files && this.files.length > 0) {
-                    label.innerHTML = '✅ Foto Pronta<input type="file" id="foto" accept="image/*" capture="environment">';
-                    label.style.backgroundColor = '#dcfce7';
-                    label.style.color = '#166534';
-                    setupFotoInput();
-                }
-            });
-        }
-        setupFotoInput();
+        // CORREÇÃO APLICADA AQUI: Altera apenas o texto e a cor, sem destruir o input do arquivo!
+        document.getElementById('foto').addEventListener('change', function(e) {
+            const label = document.getElementById('lblFoto');
+            const texto = document.getElementById('textoFoto');
+            
+            if(this.files && this.files.length > 0) {
+                texto.innerText = '✅ Foto Pronta (Tocar para trocar)';
+                label.style.backgroundColor = '#dcfce7';
+                label.style.color = '#166534';
+            }
+        });
 
-        // FUNÇÕES DO MODAL DE FOTO
         window.abrirFoto = function(url) {
             const modal = document.getElementById('modalFoto');
             const img = document.getElementById('imgExpandida');
@@ -340,11 +338,14 @@
                 return matchNome && matchDataInicio && matchDataFim;
             });
 
+            if(cuponsFiltrados.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">Nenhum cupom encontrado.</div>';
+            }
+
             cuponsFiltrados.forEach((c) => {
                 totalGeral += Number(c.valor);
                 const dataFormatada = c.data.split('-').reverse().join('/');
                 
-                // AJUSTADO: Agora chama abrirFoto() em vez de window.open()
                 const imgHtml = c.foto ? `<img src="${c.foto}" class="cupom-foto" onclick="abrirFoto(this.src)">` : `<div class="cupom-foto" style="display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:#94a3b8;text-align:center;">S/ Foto</div>`;
                 const obsHtml = c.observacoes ? `<div class="cupom-obs">${c.observacoes}</div>` : '';
 
@@ -383,6 +384,12 @@
             document.getElementById('btnSalvar').innerText = "Atualizar";
             document.getElementById('btnCancelar').style.display = "block";
             document.getElementById('fotoAviso').style.display = cupom.foto ? "block" : "none";
+            
+            // Se estiver editando e o item não tiver foto, avisa para ele
+            if(!cupom.foto) {
+                document.getElementById('textoFoto').innerText = "📷 Adicionar Foto";
+            }
+            
             changeScreen('cadastro', document.querySelectorAll('.nav-item')[0]);
             window.scrollTo(0,0);
         }
@@ -395,6 +402,11 @@
             document.getElementById('btnSalvar').innerText = "Salvar na Nuvem";
             document.getElementById('btnCancelar').style.display = "none";
             document.getElementById('fotoAviso').style.display = "none";
+            
+            // Restaura o visual do botão da foto
+            document.getElementById('textoFoto').innerText = '📷 Abrir Câmera';
+            document.getElementById('lblFoto').style.backgroundColor = '#e0f2fe';
+            document.getElementById('lblFoto').style.color = '#0369a1';
         }
 
         function redimensionarEConverterImagem(file, callback) {
@@ -405,7 +417,7 @@
                 img.src = event.target.result;
                 img.onload = function() {
                     const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 1000; // Aumentei um pouco a qualidade
+                    const MAX_WIDTH = 1000;
                     let width = img.width; let height = img.height;
                     if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
                     canvas.width = width; canvas.height = height;
@@ -424,8 +436,10 @@
             btn.disabled = true;
 
             if (file) {
+                // Se escolheu uma foto nova, comprime e salva
                 redimensionarEConverterImagem(file, (fotoBase64) => salvarNoSupabase(fotoBase64));
             } else {
+                // Se não escolheu foto, mantém a antiga (se existir)
                 const antiga = idSendoEditado ? cupons.find(c => c.id === idSendoEditado).foto : null;
                 salvarNoSupabase(antiga);
             }
@@ -447,7 +461,7 @@
                     await supabaseClient.from('cupons').insert([cupomData]);
                 }
                 alert("✓ Salvo com sucesso!");
-                cancelarEdicao();
+                cancelarEdicao(); // Já limpa o form e o botão de foto
                 buscarDadosDaNuveem();
             } catch (e) {
                 alert("Erro ao salvar.");
@@ -457,7 +471,7 @@
         }
 
         async function excluir(id) {
-            if(!confirm("Deseja apagar?")) return;
+            if(!confirm("Deseja apagar permanentemente?")) return;
             try {
                 await supabaseClient.from('cupons').delete().eq('id', id);
                 cupons = cupons.filter(c => c.id !== id);
