@@ -64,7 +64,6 @@
 
         input:focus, textarea:focus { outline: none; border-color: var(--primary); background-color: #fff; }
 
-        /* Estilo da grade de Caixas de Seleção (Checkboxes) */
         .checkbox-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
@@ -92,7 +91,6 @@
             cursor: pointer;
         }
 
-        /* Estilos da Seção de Itens Dinâmicos */
         .itens-section {
             background: #f8fafc; border: 1px dashed var(--border); border-radius: 8px;
             padding: 15px; margin-bottom: 15px;
@@ -133,7 +131,6 @@
         button.cancel-btn { background-color: #94a3b8; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; width: 100%; display: none; cursor: pointer; }
         button.main-btn:disabled { background-color: #94a3b8; cursor: not-allowed; }
 
-        /* Lista de Registros */
         .cupom-item {
             background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 15px;
             margin-bottom: 15px; display: flex; gap: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
@@ -226,8 +223,7 @@
 
                     <div class="itens-section">
                         <label style="font-size: 1rem; color: var(--primary); border-bottom: 1px solid var(--border); padding-bottom: 5px;">📦 Itens da Nota</label>
-                        <div id="listaItensDinamicos">
-                            </div>
+                        <div id="listaItensDinamicos"></div>
                         <button type="button" class="btn-add-item" onclick="adicionarLinhaItem()">+ Adicionar Item</button>
                         
                         <div class="item-totais">Subtotal dos Itens: <span id="subtotalItensVisual">R$ 0,00</span></div>
@@ -309,51 +305,31 @@
         function adicionarLinhaItem(itemObj = null) {
             const container = document.getElementById('listaItensDinamicos');
             const rowId = 'item_' + Date.now() + Math.floor(Math.random() * 100);
-            
             const div = document.createElement('div');
             div.className = 'item-row';
             div.id = rowId;
-
             const nItem = itemObj ? itemObj.item : '';
             const nPac = itemObj ? itemObj.paciente : '';
             const nQtd = itemObj ? itemObj.quantidade : 1;
             const nVal = itemObj ? itemObj.valor : '';
-
             div.innerHTML = `
                 <div class="item-grid full">
-                    <div>
-                        <label>Descrição do Item</label>
-                        <input type="text" class="i-desc" placeholder="Ex: Dipirona 500mg" value="${nItem}" required>
-                    </div>
+                    <div><label>Descrição do Item</label><input type="text" class="i-desc" value="${nItem}" required></div>
                 </div>
                 <div class="item-grid">
-                    <div>
-                        <label>Paciente</label>
-                        <input type="text" class="i-pac" placeholder="Nome do paciente" value="${nPac}" required>
-                    </div>
-                    <div>
-                        <label>Quantidade</label>
-                        <input type="number" class="i-qtd" step="0.01" value="${nQtd}" oninput="validarTotais()" required>
-                    </div>
+                    <div><label>Paciente</label><input type="text" class="i-pac" value="${nPac}" required></div>
+                    <div><label>Quantidade</label><input type="number" class="i-qtd" step="0.01" value="${nQtd}" oninput="validarTotais()" required></div>
                 </div>
                 <div class="item-grid" style="align-items: end;">
-                    <div>
-                        <label>Valor Unitário (R$)</label>
-                        <input type="number" class="i-val" step="0.01" placeholder="0,00" value="${nVal}" oninput="validarTotais()" required>
-                    </div>
-                    <div>
-                        <button type="button" class="btn-del-item" onclick="removerLinhaItem('${rowId}')">🗑️ Excluir Item</button>
-                    </div>
+                    <div><label>Valor Unitário (R$)</label><input type="number" class="i-val" step="0.01" value="${nVal}" oninput="validarTotais()" required></div>
+                    <div><button type="button" class="btn-del-item" onclick="removerLinhaItem('${rowId}')">🗑️ Excluir Item</button></div>
                 </div>
             `;
             container.appendChild(div);
             validarTotais();
         }
 
-        function removerLinhaItem(rowId) {
-            document.getElementById(rowId).remove();
-            validarTotais();
-        }
+        function removerLinhaItem(rowId) { document.getElementById(rowId).remove(); validarTotais(); }
 
         function validarTotais() {
             let somaItens = 0;
@@ -362,17 +338,11 @@
                 const val = parseFloat(row.querySelector('.i-val').value) || 0;
                 somaItens += (qtd * val);
             });
-
             document.getElementById('subtotalItensVisual').innerText = formatarMoeda(somaItens);
-
             const valorNota = parseFloat(document.getElementById('valor').value) || 0;
             const aviso = document.getElementById('avisoDivergencia');
-            
-            if (Math.abs(somaItens - valorNota) > 0.05 && document.querySelectorAll('.item-row').length > 0) {
-                aviso.style.display = 'block';
-            } else {
-                aviso.style.display = 'none';
-            }
+            if (Math.abs(somaItens - valorNota) > 0.05 && document.querySelectorAll('.item-row').length > 0) aviso.style.display = 'block';
+            else aviso.style.display = 'none';
         }
 
         function extrairItensDoDOM() {
@@ -390,13 +360,12 @@
 
         async function buscarDadosDaNuveem() {
             try {
-                const { data, error } = await supabaseClient.from('cupons').select('*').order('data', { ascending: false });
+                // ALTERADO: Agora ordena de forma ascendente (antiga -> nova)
+                const { data, error } = await supabaseClient.from('cupons').select('*').order('data', { ascending: true });
                 if (error) throw error;
                 cupons = data; 
                 renderizarLista();
-            } catch (erro) {
-                console.error(erro);
-            }
+            } catch (erro) { console.error(erro); }
         }
 
         document.getElementById('foto').addEventListener('change', function(e) {
@@ -420,9 +389,6 @@
 
         function formatarMoeda(v) { return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
 
-        // ==========================================
-        // LÓGICA DE FILTRAGEM PROFUNDA
-        // ==========================================
         function renderizarLista() {
             const container = document.getElementById('listaCupons');
             const totalEl = document.getElementById('valorTotal');
@@ -433,35 +399,23 @@
             container.innerHTML = ''; let totalGeral = 0;
 
             const cuponsFiltrados = cupons.filter(c => {
-                // 1. Cria uma string gigante com todas as informações pesquisáveis do cupom
                 let textoBusca = (c.estabelecimento + ' ' + (c.numero_nota || '')).toLowerCase();
-                
-                // 2. Se a nota tiver itens, adiciona o nome do item e do paciente à string gigante
-                if (c.itens && Array.isArray(c.itens)) {
-                    textoBusca += ' ' + c.itens.map(i => i.item + ' ' + i.paciente).join(' ').toLowerCase();
-                }
-
-                // 3. Verifica se o que o usuário digitou está dentro dessa string gigante
+                if (c.itens && Array.isArray(c.itens)) textoBusca += ' ' + c.itens.map(i => i.item + ' ' + i.paciente).join(' ').toLowerCase();
                 const matchBusca = textoBusca.includes(busca);
                 const matchDataInicio = dataInicio ? c.data >= dataInicio : true;
                 const matchDataFim = dataFim ? c.data <= dataFim : true;
-                
                 return matchBusca && matchDataInicio && matchDataFim;
             });
 
-            if(cuponsFiltrados.length === 0) {
-                container.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">Nenhum registro encontrado.</div>';
-            }
+            if(cuponsFiltrados.length === 0) container.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">Nenhum registro encontrado.</div>';
 
             cuponsFiltrados.forEach((c) => {
                 totalGeral += Number(c.valor);
                 const dataFormatada = c.data.split('-').reverse().join('/');
                 const imgHtml = c.foto ? `<img src="${c.foto}" class="cupom-foto" onclick="abrirFoto(this.src)">` : `<div class="cupom-foto" style="display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:#94a3b8;">S/ Foto</div>`;
                 const obsHtml = c.observacoes ? `<div class="cupom-obs">📝 ${c.observacoes}</div>` : '';
-                
                 const categoriasArray = (c.categoria || '').split(',').map(cat => cat.trim()).filter(cat => cat);
                 const catHtml = categoriasArray.map(cat => `<span class="cupom-cat">${cat}</span>`).join('');
-
                 let itensHtml = '';
                 if (c.itens && Array.isArray(c.itens) && c.itens.length > 0) {
                     let listaItens = c.itens.map(item => `<li><b>${item.item}</b> (Pac: ${item.paciente}) - ${item.quantidade}x ${formatarMoeda(item.valor)}</li>`).join('');
@@ -478,8 +432,7 @@
                             </div>
                             <div>${catHtml}</div>
                             <div class="cupom-valor">${formatarMoeda(c.valor)}</div>
-                            ${itensHtml}
-                            ${obsHtml}
+                            ${itensHtml}${obsHtml}
                             <div class="actions">
                                 <button class="btn-action btn-editar" onclick="editar(${c.id})">✏️ Editar</button>
                                 <button class="btn-action btn-excluir" onclick="excluir(${c.id})">🗑️ Excluir</button>
@@ -495,29 +448,20 @@
             const cupom = cupons.find(c => c.id === id);
             if (!cupom) return;
             idSendoEditado = id;
-            
             document.getElementById('estabelecimento').value = cupom.estabelecimento;
             document.getElementById('numeroNota').value = cupom.numero_nota || '';
             document.getElementById('valor').value = cupom.valor;
             document.getElementById('data').value = cupom.data;
             document.getElementById('observacoes').value = cupom.observacoes || '';
-            
             const catsSalvas = (cupom.categoria || '').split(',').map(c => c.trim());
-            document.querySelectorAll('.cat-checkbox').forEach(cb => {
-                cb.checked = catsSalvas.includes(cb.value);
-            });
-
+            document.querySelectorAll('.cat-checkbox').forEach(cb => cb.checked = catsSalvas.includes(cb.value));
             document.getElementById('listaItensDinamicos').innerHTML = ''; 
-            if (cupom.itens && Array.isArray(cupom.itens)) {
-                cupom.itens.forEach(item => adicionarLinhaItem(item));
-            }
-
+            if (cupom.itens && Array.isArray(cupom.itens)) cupom.itens.forEach(item => adicionarLinhaItem(item));
             document.getElementById('formTitle').innerText = "✏️ Editar Nota";
             document.getElementById('btnSalvar').innerText = "Atualizar";
             document.getElementById('btnCancelar').style.display = "block";
             document.getElementById('fotoAviso').style.display = cupom.foto ? "block" : "none";
-            if(!cupom.foto) { document.getElementById('textoFoto').innerText = "📷 Adicionar Foto"; }
-            
+            if(!cupom.foto) document.getElementById('textoFoto').innerText = "📷 Adicionar Foto";
             changeScreen('cadastro', document.querySelectorAll('.nav-item')[0]);
             window.scrollTo(0,0);
             validarTotais();
@@ -528,16 +472,13 @@
             document.getElementById('cupomForm').reset();
             document.getElementById('data').valueAsDate = new Date();
             document.querySelectorAll('.cat-checkbox').forEach(cb => cb.checked = false);
-
             document.getElementById('listaItensDinamicos').innerHTML = ''; 
             document.getElementById('subtotalItensVisual').innerText = "R$ 0,00";
             document.getElementById('avisoDivergencia').style.display = 'none';
-
             document.getElementById('formTitle').innerText = "Nova Nota / Cupom";
             document.getElementById('btnSalvar').innerText = "Salvar na Nuvem";
             document.getElementById('btnCancelar').style.display = "none";
             document.getElementById('fotoAviso').style.display = "none";
-            
             document.getElementById('textoFoto').innerText = '📷 Abrir Câmera';
             document.getElementById('lblFoto').style.backgroundColor = '#e0f2fe';
             document.getElementById('lblFoto').style.color = '#0369a1';
@@ -562,29 +503,17 @@
 
         document.getElementById('cupomForm').onsubmit = function(e) {
             e.preventDefault();
-
-            const checkboxes = document.querySelectorAll('.cat-checkbox:checked');
-            if(checkboxes.length === 0) {
-                alert("Por favor, selecione pelo menos uma categoria.");
-                return;
-            }
-
+            if(document.querySelectorAll('.cat-checkbox:checked').length === 0) { alert("Selecione pelo menos uma categoria."); return; }
             const file = document.getElementById('foto').files[0];
             const btn = document.getElementById('btnSalvar');
             btn.innerText = "Salvando..."; btn.disabled = true;
-
-            if (file) {
-                redimensionarEConverterImagem(file, (fotoBase64) => salvarNoSupabase(fotoBase64));
-            } else {
-                const antiga = idSendoEditado ? cupons.find(c => c.id === idSendoEditado).foto : null;
-                salvarNoSupabase(antiga);
-            }
+            if (file) redimensionarEConverterImagem(file, (fotoBase64) => salvarNoSupabase(fotoBase64));
+            else salvarNoSupabase(idSendoEditado ? cupons.find(c => c.id === idSendoEditado).foto : null);
         };
 
         async function salvarNoSupabase(foto) {
             const checkboxes = document.querySelectorAll('.cat-checkbox:checked');
             const stringCategorias = Array.from(checkboxes).map(cb => cb.value).join(', ');
-
             const cupomData = {
                 data: document.getElementById('data').value,
                 estabelecimento: document.getElementById('estabelecimento').value,
@@ -595,38 +524,20 @@
                 itens: extrairItensDoDOM(),
                 foto: foto
             };
-            
             try {
-                let res;
-                if (idSendoEditado) {
-                    res = await supabaseClient.from('cupons').update(cupomData).eq('id', idSendoEditado);
-                } else {
-                    res = await supabaseClient.from('cupons').insert([cupomData]);
-                }
-                
-                if (res && res.error) {
-                    throw res.error;
-                }
-
+                if (idSendoEditado) await supabaseClient.from('cupons').update(cupomData).eq('id', idSendoEditado);
+                else await supabaseClient.from('cupons').insert([cupomData]);
                 alert("✓ Salvo com sucesso!");
                 cancelarEdicao(); 
                 buscarDadosDaNuveem();
-            } catch (e) { 
-                alert("Erro ao salvar! Verifique a sua conexão de internet."); 
-                console.error("Erro Supabase:", e); 
-            } finally { 
-                const btn = document.getElementById('btnSalvar');
-                btn.innerText = idSendoEditado ? "Atualizar" : "Salvar na Nuvem";
-                btn.disabled = false; 
-            }
+            } catch (e) { alert("Erro ao salvar!"); console.error(e); } 
+            finally { document.getElementById('btnSalvar').disabled = false; }
         }
 
         async function excluir(id) {
             if(!confirm("Deseja apagar permanentemente?")) return;
             try {
-                const res = await supabaseClient.from('cupons').delete().eq('id', id);
-                if (res && res.error) throw res.error;
-                
+                await supabaseClient.from('cupons').delete().eq('id', id);
                 cupons = cupons.filter(c => c.id !== id);
                 renderizarLista();
             } catch (e) { alert("Erro ao excluir."); }
@@ -635,73 +546,30 @@
         window.exportarPDF = function() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF('landscape'); 
-
             const busca = document.getElementById('filterBusca').value.toLowerCase();
             const dataInicio = document.getElementById('filterInicio').value;
             const dataFim = document.getElementById('filterFim').value;
-
-            // A MESMA LÓGICA PROFUNDA APLICADA NO PDF
+            // O PDF usará a mesma ordem da lista filtrada (que já vem ordenada do banco)
             const cuponsFiltrados = cupons.filter(c => {
                 let textoBusca = (c.estabelecimento + ' ' + (c.numero_nota || '')).toLowerCase();
-                if (c.itens && Array.isArray(c.itens)) {
-                    textoBusca += ' ' + c.itens.map(i => i.item + ' ' + i.paciente).join(' ').toLowerCase();
-                }
-                const matchBusca = textoBusca.includes(busca);
-                const matchDataInicio = dataInicio ? c.data >= dataInicio : true;
-                const matchDataFim = dataFim ? c.data <= dataFim : true;
-                return matchBusca && matchDataInicio && matchDataFim;
+                if (c.itens && Array.isArray(c.itens)) textoBusca += ' ' + c.itens.map(i => i.item + ' ' + i.paciente).join(' ').toLowerCase();
+                return textoBusca.includes(busca) && (dataInicio ? c.data >= dataInicio : true) && (dataFim ? c.data <= dataFim : true);
             });
-
-            if(cuponsFiltrados.length === 0) { alert("Não há registros neste período/filtro."); return; }
-
-            doc.setFontSize(16);
-            doc.text("Relatório Geral de Notas e Itens", 14, 20);
-            
-            doc.setFontSize(10);
-            let textoPeriodo = "Período: ";
-            if(dataInicio && dataFim) textoPeriodo += `${dataInicio.split('-').reverse().join('/')} a ${dataFim.split('-').reverse().join('/')}`;
-            else textoPeriodo += "Completo";
-            doc.text(textoPeriodo, 14, 28);
-
+            if(cuponsFiltrados.length === 0) { alert("Não há registros neste período."); return; }
+            doc.setFontSize(16); doc.text("Relatório Geral de Notas e Itens", 14, 20);
+            doc.setFontSize(10); doc.text("Relatório ordenado por data (Cronológico)", 14, 28);
             let totalSoma = 0;
-            const linhas = [];
-
-            cuponsFiltrados.forEach(c => {
+            const linhas = cuponsFiltrados.map(c => {
                 totalSoma += Number(c.valor);
-                
-                let stringItens = '-';
-                if (c.itens && Array.isArray(c.itens) && c.itens.length > 0) {
-                    stringItens = c.itens.map(i => `${i.quantidade}x ${i.item} (Pac: ${i.paciente}) [${formatarMoeda(i.valor)}]`).join('\n');
-                }
-
-                linhas.push([
-                    c.data.split('-').reverse().join('/'),
-                    c.numero_nota || '-',
-                    c.estabelecimento,
-                    c.categoria,
-                    stringItens, 
-                    formatarMoeda(c.valor)
-                ]);
+                let stringItens = c.itens && c.itens.length > 0 ? c.itens.map(i => `${i.quantidade}x ${i.item} (Pac: ${i.paciente}) [${formatarMoeda(i.valor)}]`).join('\n') : '-';
+                return [c.data.split('-').reverse().join('/'), c.numero_nota || '-', c.estabelecimento, c.categoria, stringItens, formatarMoeda(c.valor)];
             });
-
             linhas.push(['', '', '', '', 'TOTAL GERAL:', formatarMoeda(totalSoma)]);
-
             doc.autoTable({
-                startY: 35,
-                head: [['Data', 'Nº Nota', 'Fornecedor', 'Categorias', 'Detalhes dos Itens', 'Total Nota']],
-                body: linhas,
-                theme: 'striped',
-                headStyles: { fillColor: [37, 99, 235] },
-                styles: { cellPadding: 3, fontSize: 8 },
-                columnStyles: { 4: { cellWidth: 80 } }, 
-                didParseCell: function(data) {
-                    if (data.row.index === linhas.length - 1) {
-                        data.cell.styles.fontStyle = 'bold';
-                        data.cell.styles.fillColor = [226, 232, 240];
-                    }
-                }
+                startY: 35, head: [['Data', 'Nº Nota', 'Fornecedor', 'Categorias', 'Detalhes dos Itens', 'Total Nota']], body: linhas,
+                theme: 'striped', headStyles: { fillColor: [37, 99, 235] }, styles: { fontSize: 8 }, columnStyles: { 4: { cellWidth: 80 } },
+                didParseCell: (data) => { if (data.row.index === linhas.length - 1) { data.cell.styles.fontStyle = 'bold'; data.cell.styles.fillColor = [226, 232, 240]; } }
             });
-
             doc.save("Relatorio_Despesas.pdf");
         }
 
